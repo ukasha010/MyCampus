@@ -1,0 +1,24 @@
+﻿<label for="file-upload" class="DropZone">
+    <InputFile class="DropFile" id="file-upload" OnChange="@UploadFilesRequest" multiple />
+    <div class="h6 text-center w-100 m-0">
+        <span>Drag files or click</span>
+        @if(RequestedUploadFiles != null)
+        {
+            <span class="me-1">(@RequestedUploadFiles.Count)</span>
+        }
+        <div class="m-0">
+            <small class="text-muted">Limited to @MaxMultipleFiles files</small>
+        </div>
+    </div>
+</label>
+
+@code {
+    [Parameter] public int MaxMultipleFiles { get; set; } = 20;
+
+    public IReadOnlyList<IBrowserFile>? RequestedUploadFiles { get; private set; }
+
+    private void UploadFilesRequest(InputFileChangeEventArgs e)
+    {
+        RequestedUploadFiles = e.GetMultipleFiles(MaxMultipleFiles);
+    }
+}

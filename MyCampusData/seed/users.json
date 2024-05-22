@@ -1,0 +1,47 @@
+﻿[
+  {
+    "Id": "432D6F99-D2BF-4267-959F-1A039C950E0F",
+    "Username": "demo2",
+    "PasswordHash": "NaX4hv5mRmqIeLNGOYL6Fk/zcMG2Mv2oA+A4s1SozgdYSWsUTQuMg0lFooCy6LLnfhSisBRPZUaRitdBXFApGg==",
+    "PasswordSalt": "9Ui28Ss1dVz0+FUs62VoRWuIcxch02wiuXeYeDbGcp8nECuEErONfgEE3Hg11Vsgv/VVhonPInOpJpOBwLKFbrwXHmGo9i7O7aSLepExG2MuUCvKCCO1xfpjb1jgUMLBNd/7qfTKzLwupUlx65yyrj+8T634EN+ohTP+cLfIk2I=",
+    "Gender": 1,
+    "Permissions": 2,
+    "Email": "alon@gmail.com",
+    "PhoneNumber": "0542222222",
+    "Country": "ישראל",
+    "City": "תל-אביב",
+    "CreatedAt": "2022-08-13T23:22:59.5826978",
+    "FirstName": "אלון",
+    "LastName": "לוי"
+  },
+  {
+    "Id": "1FB83307-3F4D-4CF7-8DF0-D2DC4F8D3860",
+    "Username": "demo1",
+    "PasswordHash": "suNThMZkSccfArCcgMfWa0mI9q24g8m5FCy8tiu7oxpnVQ9jfjiU9hnE8ELYMknPdZj74dzs5ow1B81vPyVQUA==",
+    "PasswordSalt": "l0LuJTmHPHLv/lXsxpMDsaIj4J336oUNQJU2VdL7Pf8Imrx5P6/mxswctrURIQOIL79USlhxAPDx5OKRs1Y8gX3e0/Fr92JYI8HFQ9mBTB7Gdn34Cr4GK5082CJtZkyXsowCr6CQuyjsVoJROnwzfwYz8qhEn3WShscYZc0zrXA=",
+    "Gender": 1,
+    "Permissions": 1,
+    "Email": "dani@gmail.com",
+    "PhoneNumber": "0542222221",
+    "Country": "ישראל",
+    "City": "תל-אביב",
+    "CreatedAt": "2022-08-14T19:23:47.8902802",
+    "FirstName": "דניאל",
+    "LastName": "קריצ'בסקי"
+  },
+  {
+    "Id": "57B8ECBF-2475-4DB1-9D36-ECC338D88445",
+    "Username": "demo3",
+    "PasswordHash": "xAXK9eDHV0kQ+YVfvjhVC7qluMh97E0V1gWoMQTtscmemb5V6AoFDhQITKzoJNUWQwSDl+x+jzjjkL1/nZohaQ==",
+    "PasswordSalt": "eOWwg3lY0iabCSNrizLOei95O7LHqlkIpbsPkiNCic6OP9nIeUB6PnnnZTo1ITCQcJeyKAWnw1mBdZ94k40rRMCy8rCl9mC0bk3+Lea658+xXQtXsqqLngd9xTlb7mshfI97crwgL43vbKNsozYE5O1Bhe8IGHk/RgTGvxH3Aro=",
+    "Gender": 2,
+    "Permissions": 3,
+    "Email": "admin@localhost.com",
+    "PhoneNumber": "1111111111",
+    "Country": "ישראל",
+    "City": "חיפה",
+    "CreatedAt": "2022-08-19T13:00:11.7682118",
+    "FirstName": "בטי",
+    "LastName": "קון"
+  }
+]

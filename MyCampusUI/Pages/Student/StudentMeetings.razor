@@ -1,0 +1,115 @@
+﻿@page "/student/meetings"
+@page "/student/meetings/{PageId:int}"
+
+@inject IAuthenticationStateService authenticationState
+@inject ICustomNavigationService navigationService
+@inject IDbContextFactory<CampusContext> campusContextFactory
+
+<RenderPermission Permission="UserPermissionsEnum.Student" RedirectIfInvalid="true">
+
+    <div class="container mb-4">
+        <h2 class="mb-4">All My Meetings</h2>
+
+        @if(meetings != null)
+        {
+            @if (meetings.Count > 0)
+            {
+            
+                var numFrom = PageId <= 1 ? 1 : (PageId - 1) * meetingsPerPage;
+                var numTo = (PageId * meetingsPerPage) > meetingsCount ? meetingsCount : (PageId * meetingsPerPage);
+            
+                <p>Displaying @numFrom to @numTo out of @meetingsCount results</p>
+                <div class="container">
+                    @foreach(var meeting in meetings)
+                    {
+                        <div class="col-12 mb-3 mb-lg-0 mt-4 shadow-sm">
+                            <div class="card p-4">
+                                <div class="row align-items-center">
+                                    <div class="col-lg-5 d-flex flex-column force-padding-all">
+                                        <p class="h5">@meeting.Course?.Name</p>
+                                        <p class="h6">@meeting.Meeting?.Title</p>
+
+                                        <p class="h6 text-muted mt-3">Class: @meeting.Class?.Name</p>
+                                        <p class="h6 text-muted mb-4">Lecturer: @(meeting.Lecturer?.FirstName + " " + meeting.Lecturer?.LastName)</p>
+
+                                    </div>
+                        
+                                    <div class="col-lg-4">
+                                        <p class="h6 text-muted">Meeting Date: @meeting.Meeting?.StartAt.ToLongDateString()</p>
+                                    </div>
+
+                                    <div class="col-lg-3 d-flex justify-content-center align-content-center">
+                                        @{ var isMeetingOver = DateTime.Now.Subtract(meeting.Meeting!.StartAt) > TimeSpan.FromHours(6); }
+                                        <a role="button" class="btn btn-outline-dark w-100"
+                                            disabled="@(isMeetingOver)"
+                                            target="_blank" href="@meeting.Meeting?.MeetingUrl">
+                                            @if(isMeetingOver)
+                                            {
+                                                <span>Meeting Ended</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Join Meeting</span>
+                                            }
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    <nav class="d-flex justify-content-center mt-5">
+                        <Pagination @ref="meetingPagination" UrlPagination="/student/meetings/" PagesBufferRange="@pagesBufferRange" CurrentPage="PageId" CurrentPagesCount="meetingsPages" />
+                    </nav>
+                </div>
+            }
+            else
+            {
+                <h4 class="text-muted">No meetings found</h4>
+            }
+        }
+    </div>
+
+</RenderPermission>
+
+@code {
+    private List<MeetingModel>? meetings;
+
+    private Pagination? meetingPagination;
+
+    private int meetingsPerPage = 10;
+    private int pagesBufferRange = 5;
+
+    private long meetingsPages;
+    private long meetingsCount;
+
+    [Parameter] public int PageId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        PageId = PageId <= 0 ? 1 : PageId;
+
+        meetingPagination?.SetCurrentPage(PageId);
+
+        using(var dbContext = await campusContextFactory.CreateDbContextAsync())
+        {
+            if (authenticationState.User?.Id != null)
+            {
+                var user = await dbContext.Users.FindAsync(authenticationState.User.Id);
+                if(user != null)
+                {
+                    meetingsCount = await dbContext.GetStudentMeetingCountAsync(user.Id);
+
+                    meetingsPages = Convert.ToInt64(Math.Ceiling((double)meetingsCount / meetingsPerPage));
+
+                    meetingPagination?.SetPagesCount(meetingsPages);
+
+                    meetings = await dbContext.GetStudentMeetingsPaginationAsync(user.Id, PageId, meetingsPerPage);
+                }
+                else
+                {
+                    navigationService.NavigatePreviousOrDefault(true);
+                }
+            }
+        }
+    }
+}

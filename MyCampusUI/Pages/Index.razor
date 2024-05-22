@@ -1,0 +1,156 @@
+﻿@page "/"
+
+@inject IAuthenticationStateService authenticationState
+@inject IDbContextFactory<CampusContext> campusContextFactory
+
+
+<h1 class="text-center mb-5">
+    @DayStateGreet, @authenticationState.User?.FirstName @authenticationState.User?.LastName
+</h1>
+
+
+<RenderPermission Permissions="new[] { UserPermissionsEnum.Student, UserPermissionsEnum.Lecturer }">
+    <div class="container mb-5">
+        <h2 class="mb-4">My Classes/Courses</h2>
+
+
+        @if (classes != null)
+        {
+            if (classes.Count > 0)
+            {
+                <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-evenly">
+                    @foreach (var currClass in classes)
+                    {
+                        <div class="col-lg-4 mb-3 d-flex align-items-stretch flex-flow-column">
+                            <div class="card w-100 h-100 shadow-sm">
+                                <div class="card-body">
+                                    <p class="card-title h4 mb-2">@currClass.Course?.Name</p>
+                                    <div class="card-text">
+                                        <p class="h6 text-muted mb-3">Class: @currClass.Class?.Name</p>
+                                        <p class="">Primary Lecturer: @(currClass.Lecturer != null ? (currClass.Lecturer.FirstName +
+                                " " + currClass.Lecturer.LastName) : "Not Assigned")</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <h4 class="text-muted">Currently, there are no associated courses</h4>
+            }
+        }
+    </div>
+
+    <div class="container mb-5">
+        <h2 class="mb-4">Upcoming Meetings</h2>
+
+        @if (meetings != null)
+        {
+            if (meetings.Count > 0)
+            {
+                <MeetingsCarouselSlider Meetings="meetings" />
+            }
+            else
+            {
+                <h4 class="text-muted">No upcoming meetings</h4>
+            }
+        }
+    </div>
+
+</RenderPermission>
+
+@code {
+    private string? DayStateGreet;
+
+    private List<ClassModel>? classes;
+    private List<MeetingModel>? meetings;
+
+    protected override void OnInitialized()
+    {
+        var currentHour = DateTime.Now.Hour;
+        if (currentHour >= 23 || currentHour < 5)
+        {
+            DayStateGreet = "Good night";
+        }
+        else if (currentHour >= 5 && currentHour < 12)
+        {
+            DayStateGreet = "Good morning";
+        }
+        else if (currentHour >= 12 && currentHour < 17)
+        {
+            DayStateGreet = "Good afternoon";
+        }
+        else
+        {
+            DayStateGreet = "Good evening";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using (var dbContext = await campusContextFactory.CreateDbContextAsync())
+        {
+            if (authenticationState.User?.Id != null)
+            {
+                var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == authenticationState.User.Id);
+                if (user != null)
+                {
+                    var currentTime = DateTime.Now;
+                    if (user.Permissions == UserPermissionsEnum.Lecturer)
+                    {
+                        classes = await (from classEntity in dbContext.Classes.Include(x => x.Course)
+                                         where classEntity.LecturerId == user.Id
+                                         select new ClassModel
+                                             {
+                                                 Class = classEntity,
+                                                 Course = classEntity.Course,
+                                                 Lecturer = classEntity.Lecturer
+                                             }).ToListAsync();
+
+                        meetings = await (from meeting in dbContext.ClassMeetings.Include(x => x.Class).ThenInclude(x => x.Course)
+                                          where (meeting.StartAt > currentTime || EF.Functions.DateDiffHour(meeting.StartAt, currentTime) < 2) &&
+                                          meeting.LecturerId == user.Id
+                                          orderby meeting.StartAt ascending
+                                          select new MeetingModel
+                                              {
+                                                  Meeting = meeting,
+                                                  Class = meeting.Class,
+                                                  Course = meeting.Class.Course,
+                                                  Lecturer =
+                                              meeting.Lecturer
+                                              }).Take(5).ToListAsync();
+                    }
+                    else if (user.Permissions == UserPermissionsEnum.Student)
+                    {
+                        classes = await (from userClass in dbContext.UserClasses.Include(x => x.Class).ThenInclude(x => x.Course)
+                        .Include(x => x.Class).ThenInclude(x => x.Lecturer)
+                                         where userClass.StudentId == user.Id
+                                         select new ClassModel
+                                             {
+                                                 Class = userClass.Class,
+                                                 Course = userClass.Class.Course,
+                                                 Lecturer = userClass.Class.Lecturer
+                                             }).ToListAsync();
+
+                        meetings = await (from meeting in dbContext.ClassMeetings.Include(x => x.Class).ThenInclude(x => x.Course)
+                        .Include(x => x.Lecturer)
+                                          join userClass in dbContext.UserClasses on meeting.ClassId equals userClass.ClassId
+                                          where (meeting.StartAt > currentTime || EF.Functions.DateDiffHour(meeting.StartAt, currentTime) < 2) &&
+                                          userClass.StudentId == user.Id
+                                          orderby meeting.StartAt ascending
+                                          select new MeetingModel
+                                              {
+                                                  Meeting = meeting,
+                                                  Class = meeting.Class,
+                                                  Course = meeting.Class.Course,
+                                                  Lecturer =
+                                              meeting.Lecturer
+                                              }).Take(5).ToListAsync();
+                    }
+                }
+            }
+        }
+    }
+}

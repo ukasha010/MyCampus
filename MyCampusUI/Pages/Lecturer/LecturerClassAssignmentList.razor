@@ -1,0 +1,158 @@
+﻿@page "/lecturer/class/{ClassId:guid}/assignments"
+@page "/lecturer/class/{ClassId:guid}/assignments/{PageId:int}"
+
+@inject IAuthenticationStateService authenticationState
+@inject ICustomNavigationService navigationManager
+@inject IAssignmentManagerService assignmentManager
+@inject IDbContextFactory<CampusContext> campusContextFactory
+
+<RenderPermission Permission="UserPermissionsEnum.Lecturer" RedirectIfInvalid="true">
+    <ModalNotification @ref="notifModal" />
+    <div class="container mb-4">
+        @if(classModel != null)
+        {
+            <h2>All Assignments for @classModel.Class?.Name</h2>
+            <h4 class="text-muted mb-3">@classModel.Course?.Name</h4>
+            @if (assignments?.Count > 0)
+            {
+            
+                var numFrom = PageId <= 1 ? 1 : (PageId - 1) * assignmentsPerPage;
+                var numTo = (PageId * assignmentsPerPage) > assignmentsCount ? assignmentsCount : (PageId * assignmentsPerPage);
+            
+                <p>Displaying @numFrom to @numTo out of @assignmentsCount results</p>
+                <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-evenly">
+
+                    @if (PageId == 1)
+                    {
+                        <div class="col-lg-4 mb-3 d-flex align-items-stretch flex-flow-column">
+                            <div class="card card-new-assignment h-100 w-100 position-relative">
+                                <div class="card-body">
+                                    <a class="d-flex justify-content-center align-items-center h-100 h3" href="@($"/lecturer/class/{classModel.Class?.Id}/assignment/create")">
+                                        <i class="fa-solid fa-plus ms-1"></i>
+                                        <span>New Assignment</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @foreach (var assignment in assignments)
+                    {
+                        <div class="col-lg-4 mb-3 d-flex align-items-stretch flex-flow-column">
+                            <div class="card h-100 w-100 shadow-sm position-relative">
+                                <div class="card-body mt-3">
+                                    <p class="card-title h4 mb-4">@assignment.Assignment?.Title</p>
+                                    <div class="card-text">
+                                        <p class="mb-3">Total Submissions: <strong>@assignment.AssignmentSubmissionsCount</strong></p>
+                                        <p class="mb-2"><small>Opening Date: @(assignment.Assignment!.CreatedAt.ToLongDateString())</small></p>
+                                        <p class="mb-2"><small>Last Submission Date: @(assignment.Assignment!.EndSubmissionAt.ToLongDateString())</small></p>
+                                    </div>
+                                </div>
+                                <div class="dropdown dropend position-absolute top-0 start-0">
+                                  <button class="btn btn-sm btn-light" type="button" id="classOptionsMenu" data-bs-toggle="dropdown"><i class="fa-solid fa-gear"></i></button>
+                                  <ul class="dropdown-menu rtl" aria-labelledby="classOptionsMenu">
+                                    <li><a class="dropdown-item" href="@($"/lecturer/assignment/{assignment.Assignment?.Id}/edit")" type="button">Edit Assignment</a></li>
+                                    <li><a class="dropdown-item" href="@($"/lecturer/assignment/{assignment.Assignment?.Id}/submissions")" type="button">View Submissions</a></li>
+                                    <li>
+                                        <AsyncLoadingButton class="dropdown-item" ButtonTask="@((c) => OnAssignmentDelete(assignment.Assignment?.Id))">Delete Assignment</AsyncLoadingButton>
+                                    </li>
+                                  </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <nav class="d-flex justify-content-center mt-5">
+                    <Pagination @ref="classAssignmentPagination" UrlPagination="@($"/lecturer/class/{ClassId}/assignments/")" PagesBufferRange="@pagesBufferRange" CurrentPage="PageId" CurrentPagesCount="assignmentsPages" />
+                </nav>
+            }
+            else
+            {
+                <p class="h2 text-center mt-5">No assignments found</p>
+                <p class="h4 text-center text-muted mb-5">Create the first assignment for the class</p>
+
+                <div class="row justify-content-center">
+                    <a class="new-assignment-empty h5" href="@($"/lecturer/class/{classModel.Class?.Id}/assignment/create")">
+                        <i class="fa-solid fa-plus ms-1"></i>
+                        <span>New Assignment</span>
+                    </a>
+                </div>
+            }
+        }
+    </div>
+
+</RenderPermission>
+
+@code {
+    private ModalNotification? notifModal;
+    private ClassModel? classModel;
+    private List<ClassAssignmentModel>? assignments;
+
+    private Pagination? classAssignmentPagination;
+
+    private int assignmentsPerPage = 8;
+    private int pagesBufferRange = 5;
+
+    private long assignmentsPages;
+    private long assignmentsCount;
+
+    [Parameter] public Guid ClassId { get; set; }
+    [Parameter] public int PageId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        PageId = PageId <= 0 ? 1 : PageId;
+
+        classAssignmentPagination?.SetCurrentPage(PageId);
+
+        using(var dbContext = await campusContextFactory.CreateDbContextAsync())
+        {
+            if (authenticationState.User?.Id != null)
+            {
+                var user = await dbContext.Users.FindAsync(authenticationState.User.Id);
+                if(user != null)
+                {
+                    classModel = await (from classEntity in dbContext.Classes.Include(x => x.Course)
+                                        where classEntity.LecturerId == user.Id && classEntity.Id == ClassId
+                                        select new ClassModel { Class = classEntity, Course = classEntity.Course, Lecturer = classEntity.Lecturer }).FirstOrDefaultAsync();
+                    if(classModel != null)
+                    {
+                        assignmentsCount = await dbContext.GetClassAssignmentsCountAsync(ClassId);
+
+                        assignmentsPages = Convert.ToInt64(Math.Ceiling((double)assignmentsCount / assignmentsPerPage));
+
+                        classAssignmentPagination?.SetPagesCount(assignmentsPages);
+
+                        assignments = await dbContext.GetClassAssignmentsPaginationAsync(ClassId, PageId, assignmentsPerPage);
+                    }
+                    else
+                    {
+                        navigationManager.NavigatePreviousOrDefault(true);
+                    }
+                }
+                else
+                {
+                    navigationManager.NavigatePreviousOrDefault(true);
+                }
+            }
+        }
+    }
+
+    private async Task OnAssignmentDelete(Guid? assignmentId)
+    {
+        if(classModel?.Class?.Id is Guid classId && assignmentId.HasValue)
+        {
+            try
+            {
+                await assignmentManager.DeleteLecturerAssignment(classId, assignmentId.Value);
+                assignments?.RemoveAll(x => x.Assignment?.Id == assignmentId);
+                notifModal?.ShowConfirm("Success", "Assignment deleted successfully");
+                StateHasChanged();
+            }
+            catch(AssignmentDeleteException ex)
+            {
+                notifModal?.ShowConfirm("Error", ex.Message);
+            }
+        }
+    }
+}

@@ -1,0 +1,47 @@
+﻿@if(message?.Length > 0)
+{
+    <div @attributes="InputAttributes" class="@($"alert {alertType} alert-dismissible")" role="alert">
+        @message
+        <button type="button" @onclick="@Hide" class="btn-close"></button>
+    </div>
+}
+
+@code {
+    private const string AlertSuccess = "alert-success";
+    private const string AlertWarning = "alert-warning";
+    private const string AlertError = "alert-danger";
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? InputAttributes { get; set; }
+
+    private string? message;
+
+    private string? alertType;
+
+    public void ShowSuccess(string message)
+    {
+        this.alertType = AlertSuccess;
+        this.message = message;
+        StateHasChanged();
+    }
+
+    public void ShowWarning(string message)
+    {
+        this.alertType = AlertWarning;
+        this.message = message;
+        StateHasChanged();
+    }
+
+    public void ShowError(string message)
+    {
+        this.alertType = AlertError;
+        this.message = message;
+        StateHasChanged();
+    }
+
+    public void Hide()
+    {
+        this.message = null;
+        this.alertType = null;
+        StateHasChanged();
+    }
+}

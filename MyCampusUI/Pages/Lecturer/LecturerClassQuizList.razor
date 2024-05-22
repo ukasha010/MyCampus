@@ -1,0 +1,203 @@
+﻿@page "/lecturer/class/{ClassId:guid}/quizzes"
+@page "/lecturer/class/{ClassId:guid}/quizzes/{PageId:int}"
+
+@inject IAuthenticationStateService authenticationState
+@inject ICustomNavigationService navigationManager
+@inject IQuizManagerService quizManager
+@inject IAssignmentManagerService assignmentManager
+@inject IDbContextFactory<CampusContext> campusContextFactory
+
+<RenderPermission Permission="UserPermissionsEnum.Lecturer" RedirectIfInvalid="true">
+    <ModalNotification @ref="notifModal" />
+    <div class="container mb-4">
+        @if(classModel != null)
+        {
+            <h2>All Quizzes for @classModel.Class?.Name</h2>
+            <h4 class="text-muted mb-3">@classModel.Course?.Name</h4>
+            @if (quizzes?.Count > 0)
+            {
+            
+                var numFrom = PageId <= 1 ? 1 : (PageId - 1) * quizzesPerPage;
+                var numTo = (PageId * quizzesPerPage) > quizzesCount ? quizzesCount : (PageId * quizzesPerPage);
+            
+                <p>Displaying @numFrom to @numTo out of @quizzesCount results</p>
+                <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-evenly">
+
+                    @if (PageId == 1)
+                    {
+                        <div class="col-lg-4 mb-3 d-flex align-items-stretch flex-flow-column">
+                            <div class="card card-new-quiz h-100 w-100 position-relative">
+                                <div class="card-body">
+                                    <a class="d-flex justify-content-center align-items-center h-100 h3" href="@($"/lecturer/class/{classModel.Class?.Id}/quiz/create")">
+                                        <i class="fa-solid fa-plus ms-1"></i>
+                                        <span>New Quiz</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @foreach (var quiz in quizzes)
+                    {
+                        <div class="col-lg-4 mb-3 d-flex align-items-stretch flex-flow-column">
+                            <div class="card h-100 w-100 shadow-sm position-relative">
+                                <div class="card-body mt-3">
+                                    <p class="card-title h4 mb-4">@quiz.Quiz?.Title</p>
+                                    <div class="card-text">
+                                        <p class="mb-3">Total Submissions: <strong>@quiz.QuizSubmissionsCount</strong></p>
+                                        <p class="mb-2"><small>Created At: @(quiz.Quiz!.CreatedAt.ToLongDateString())</small></p>
+                                        <p class="mb-2"><small>Open: <b>@(quiz.Quiz.IsOpen ? "Yes" : "No")</b></small></p>
+                                    </div>
+                                </div>
+                                <div class="dropdown dropend position-absolute top-0 start-0">
+                                    <button class="btn btn-sm btn-light" type="button" data-bs-auto-close="outside" id="classOptionsMenu" data-bs-toggle="dropdown"><i class="fa-solid fa-gear"></i></button>
+                                    <ul class="dropdown-menu rtl" aria-labelledby="classOptionsMenu">
+                                        <li>
+                                            <a class="dropdown-item" href="@($"/lecturer/quiz/{quiz.Quiz?.Id}/edit")" type="button" disabled>Edit Quiz</a>
+                                        </li>
+
+                                        <li>
+                                            <AsyncLoadingButton class="dropdown-item" ButtonTask="@((c) => OnQuizToggle(quiz.Quiz?.Id))">
+                                                @if(quiz.Quiz?.IsOpen == true)
+                                                {
+                                                    <span>Close Quiz</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Open Quiz</span>
+                                                }
+                                            </AsyncLoadingButton>
+                                        </li>
+
+                                        <li>
+                                            <AsyncLoadingButton class="dropdown-item" ButtonTask="@((c) => OnQuizDelete(quiz.Quiz?.Id))">Delete Quiz</AsyncLoadingButton>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <nav class="d-flex justify-content-center mt-5">
+                    <Pagination @ref="classQuizzesPagination" UrlPagination="@($"/lecturer/class/{ClassId}/quizzes/")" PagesBufferRange="@pagesBufferRange" CurrentPage="PageId" CurrentPagesCount="quizzesPages" />
+                </nav>
+            }
+            else
+            {
+                <p class="h2 text-center mt-5">No quizzes found</p>
+                <p class="h4 text-center text-muted mb-5">Create the first quiz for the class</p>
+
+                <div class="row justify-content-center">
+                    <a class="new-quiz-empty h5" href="@($"/lecturer/class/{classModel.Class?.Id}/quiz/create")">
+                        <i class="fa-solid fa-plus ms-1"></i>
+                        <span>New Quiz</span>
+                    </a>
+                </div>
+            }
+        }
+    </div>
+
+</RenderPermission>
+
+@code {
+    private ModalNotification? notifModal;
+    private ClassModel? classModel;
+    private List<ClassQuizModel>? quizzes;
+
+    private Pagination? classQuizzesPagination;
+
+    private int quizzesPerPage = 8;
+    private int pagesBufferRange = 5;
+
+    private long quizzesPages;
+    private long quizzesCount;
+
+    [Parameter] public Guid ClassId { get; set; }
+    [Parameter] public int PageId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        PageId = PageId <= 0 ? 1 : PageId;
+
+        classQuizzesPagination?.SetCurrentPage(PageId);
+
+        using(var dbContext = await campusContextFactory.CreateDbContextAsync())
+        {
+            if (authenticationState.User?.Id != null)
+            {
+                var user = await dbContext.Users.FindAsync(authenticationState.User.Id);
+                if(user != null)
+                {
+                    classModel = await (from classEntity in dbContext.Classes.Include(x => x.Course)
+                                        where classEntity.LecturerId == user.Id && classEntity.Id == ClassId
+                                        select new ClassModel { Class = classEntity, Course = classEntity.Course, Lecturer = classEntity.Lecturer }).FirstOrDefaultAsync();
+                    if(classModel != null)
+                    {
+                        quizzesCount = await dbContext.GetClassQuizzesCountAsync(ClassId);
+
+                        quizzesPages = Convert.ToInt64(Math.Ceiling((double)quizzesCount / quizzesPerPage));
+
+                        classQuizzesPagination?.SetPagesCount(quizzesPages);
+
+                        quizzes = await dbContext.GetClassQuizzesPaginationAsync(ClassId, PageId, quizzesPerPage);
+                    }
+                    else
+                    {
+                        navigationManager.NavigatePreviousOrDefault(true);
+                    }
+                }
+                else
+                {
+                    navigationManager.NavigatePreviousOrDefault(true);
+                }
+            }
+        }
+    }
+
+    private async Task OnQuizDelete(Guid? quizId)
+    {
+        if (classModel?.Class?.Id is Guid classId && quizId.HasValue)
+        {
+            try
+            {
+                await quizManager.DeleteLecturerQuiz(classModel.Class.Id, quizId.Value);
+                quizzes?.RemoveAll(x => x.Quiz?.Id == quizId.Value);
+                notifModal?.ShowConfirm("Success", "Quiz deleted successfully from the system");
+                StateHasChanged();
+            }
+            catch(QuizDeleteException ex)
+            {
+                notifModal?.ShowConfirm("Error", ex.Message);
+            }
+            catch
+            {
+                notifModal?.ShowConfirm("Error", "Unknown error occurred while deleting the quiz");
+            }
+        }
+    }
+
+    private async Task OnQuizToggle(Guid? quizId)
+    {
+        if (classModel?.Class?.Id is Guid classId && quizId.HasValue)
+        {
+            try
+            {
+                await quizManager.ToggleQuizState(classModel.Class.Id, quizId.Value);
+                var quiz = quizzes?.Find(x => x.Quiz?.Id == quizId.Value);
+                if(quiz != null && quiz.Quiz != null)
+                {
+                    quiz.Quiz.IsOpen = !quiz.Quiz.IsOpen;
+                }
+                StateHasChanged();
+            }
+            catch(QuizToggleStatusException ex)
+            {
+                notifModal?.ShowConfirm("Error", ex.Message);
+            }
+            catch
+            {
+                notifModal?.ShowConfirm("Error", "Unknown error occurred while changing the quiz status");
+            }
+        }
+    }
+}

@@ -1,0 +1,63 @@
+﻿<div class="carousel carousel-dark">
+    <div class="carousel-inner">
+        <div class="carousel-item d-flex flex-column justify-content-center align-items-center bg-light p-sides-5">
+            <div class="row justify-content-around w-100">
+                <p class="h2 text-center">@Meetings[currentIndex].Course?.Name</p>
+                <p class="h5 text-center mb-4">@Meetings[currentIndex].Meeting?.Title</p>
+                <p class="h5">Starts on @(Meetings[currentIndex].Meeting?.StartAt.ToLongDateString())</p>
+                <p class="h6 text-muted">Class: @Meetings[currentIndex].Class?.Name</p>
+                <p class="h6 text-muted mb-4">Lecturer: @(Meetings[currentIndex].Lecturer?.FirstName + " " + @Meetings[currentIndex].Lecturer?.LastName)</p>
+                <div class="row justify-content-center">
+                    <a role="button" class="btn btn-outline-dark btn-sm p-2 w-auto" target="_blank" href="@Meetings[currentIndex].Meeting?.MeetingUrl">Join the Meeting</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button class="carousel-control-prev w-auto" @onclick="@OnClickPrev" type="button">
+        <span class="carousel-control-prev-icon"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next w-auto" @onclick="@OnClickNext" type="button">
+        <span class="carousel-control-next-icon"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+<div class="d-flex justify-content-center flex-row-reverse mt-3">
+    @for(int i = 0; i < Meetings.Count; i++)
+    {
+        int currIndx = i;
+        if(i == currentIndex)
+        {
+            <i role="button" class="fa-solid fa-circle me-2 text-dark"></i>
+        }
+        else
+        {
+            <i role="button" class="fa-regular fa-circle me-2 text-black-50" @onclick="@(() => OnSelectExactIndex(currIndx))"></i>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<MeetingModel> Meetings { get; set; } = new();
+
+    private int currentIndex;
+
+    private void OnClickPrev()
+    {
+        currentIndex--;
+        if (currentIndex < 0)
+            currentIndex = Meetings.Count - 1;
+    }
+
+    private void OnClickNext()
+    {
+        currentIndex++;
+        if (currentIndex >= Meetings.Count)
+            currentIndex = 0;
+    }
+
+    private void OnSelectExactIndex(int index)
+    {
+        currentIndex = index;
+    }
+}
